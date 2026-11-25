@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="index,follow">
+<title>龍鳳樓 · Pedidos en línea</title>
+<meta name="description" content="Restaurante Lung Fung · 龍鳳樓 — Menú y pedidos en línea. Delivery y recoger.">
+<link rel="icon" href="logo.png">
+<style>
+  :root{
+    --bg:#0d1014; --card:#161b22; --line:#252c36; --txt:#f2f4f7; --sub:#9aa4b2;
+    --gold:#d8b26a; --red:#d64545;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;height:100%}
+  body{
+    background:
+      radial-gradient(120% 80% at 50% -10%, #1b2430 0%, #0d1014 55%, #090b0e 100%);
+    color:var(--txt);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    display:flex;align-items:center;justify-content:center;
+    padding:28px 22px calc(28px + env(safe-area-inset-bottom));
+  }
+  .wrap{width:100%;max-width:420px;text-align:center}
+  .logo{
+    width:132px;height:132px;object-fit:contain;margin:0 auto 18px;display:block;
+    filter:drop-shadow(0 8px 28px rgba(216,178,106,.18));
+    animation:fade .6s ease both;
+  }
+  @keyframes fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  .name{font-size:30px;letter-spacing:.18em;font-weight:700;color:var(--gold);margin:0}
+  .sub{font-size:12px;letter-spacing:.32em;color:var(--sub);margin:8px 0 0;text-transform:uppercase}
+  .card{
+    margin-top:26px;background:var(--card);border:1px solid var(--line);
+    border-radius:16px;padding:22px 20px;
+    box-shadow:0 18px 50px rgba(0,0,0,.45);
+  }
+  .spin{width:34px;height:34px;margin:0 auto 14px;border-radius:50%;
+    border:3px solid rgba(216,178,106,.18);border-top-color:var(--gold);
+    animation:rot .9s linear infinite}
+  @keyframes rot{to{transform:rotate(360deg)}}
+  .msg{font-size:15px;color:var(--txt);margin:0}
+  .hint{font-size:12.5px;color:var(--sub);margin:8px 0 0;line-height:1.6}
+  .btn{
+    display:block;width:100%;margin-top:10px;padding:14px 16px;border-radius:12px;
+    border:0;font-size:15px;font-weight:600;cursor:pointer;text-decoration:none;
+    text-align:center;font-family:inherit;
+  }
+  .primary{background:var(--gold);color:#1a1408}
+  .ghost{background:transparent;border:1px solid var(--line);color:var(--txt)}
+  .wa{background:#25d366;color:#062b14}
+  .err{display:none}
+  .err .icode{font-size:22px;margin:0 0 6px}
+  .foot{margin-top:22px;font-size:11.5px;color:#5f6b7a;line-height:1.7}
+  .foot a{color:#7d8899;text-decoration:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <img class="logo" src="logo.png" alt="龍鳳樓">
+  <h1 class="name">龍鳳樓</h1>
+  <p class="sub">Restaurante Lung Fung</p>
+
+  <div class="card" id="load">
+    <div class="spin"></div>
+    <p class="msg">Abriendo el menú…</p>
+    <p class="hint">Un momento, por favor.</p>
+  </div>
+
+  <div class="card err" id="err">
+    <p class="msg" style="font-weight:600">El menú en línea está cerrado ahora</p>
+    <p class="hint" id="errtxt">Puede pedir por WhatsApp o llamarnos. Abrimos de 11:00 a 22:00.</p>
+    <a class="btn wa" id="wa" href="https://wa.me/50661928409" rel="noopener">Pedir por WhatsApp</a>
+    <a class="btn ghost" href="tel:+50661928409">Llamar al restaurante</a>
+    <button class="btn ghost" onclick="boot(true)">Reintentar</button>
+  </div>
+
+  <p class="foot">Delivery y recoger · Pago en efectivo, SINPE Móvil o tarjeta<br>
+  <span id="stamp"></span></p>
+</div>
+
+<script>
+(function(){
+  var TRIES = 0;
+  function showErr(txt){
+    document.getElementById('load').style.display = 'none';
+    var e = document.getElementById('err');
+    e.style.display = 'block';
+    if (txt) document.getElementById('errtxt').textContent = txt;
+  }
+  function go(url){
+    document.getElementById('stamp').textContent = 'Conectando…';
+    location.replace(url);
+  }
+  window.boot = function(force){
+    TRIES++;
+    document.getElementById('load').style.display = 'block';
+    document.getElementById('err').style.display = 'none';
+
+    var bust = '?t=' + Date.now() + '&r=' + Math.random().toString(36).slice(2);
+    var ctl = ('AbortController' in window) ? new AbortController() : null;
+    var timer = setTimeout(function(){ if (ctl) ctl.abort(); showErr('El servidor no responde. Intente de nuevo o pida por WhatsApp.'); }, 9000);
+
+    fetch('order-url.json' + bust, {cache:'no-store', signal: ctl ? ctl.signal : undefined})
+      .then(function(r){ if(!r.ok) throw new Error('http ' + r.status); return r.json(); })
+      .then(function(d){
+        clearTimeout(timer);
+        if (d && d.url && /^https?:\/\//.test(d.url)) { go(d.url); }
+        else { showErr('El menú aún no está publicado. Pida por WhatsApp mientras tanto.'); }
+      })
+      .catch(function(){
+        clearTimeout(timer);
+        if (TRIES <= 2) { setTimeout(function(){ window.boot(); }, 1800); }
+        else { showErr('El servidor no responde. Intente de nuevo o pida por WhatsApp.'); }
+      });
+  };
+  window.boot();
+})();
+</script>
+</body>
+</html>
